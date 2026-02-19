@@ -12,7 +12,6 @@
   <style>
     :root{
       --bg:#0b0f14;
-      --card:#121826;
       --muted:#9fb0c3;
       --text:#e8eef6;
       --border:rgba(255,255,255,.10);
@@ -82,15 +81,19 @@
       display:grid;
       grid-template-columns: 1fr 1fr;
       gap: 14px;
+      align-items:start;
+    }
+    .col{
+      display:flex;
+      flex-direction:column;
+      gap: 14px;
     }
     @media (max-width: 860px){
-      .grid{
-        display:flex;
-        flex-direction:column;
-        gap:14px;
-      }
-      .card-right{ order: 1; }
-      .card-left{ order: 2; }
+      .grid{ grid-template-columns: 1fr; }
+      header{ flex-direction:column; align-items:flex-start; gap:8px; }
+      .pillRow{ justify-content:flex-start; gap:6px; }
+      .pill{ padding:6px 8px; font-size:11px; }
+      h1{ font-size:18px; }
     }
 
     .card{
@@ -141,10 +144,7 @@
     .msg.warn{ border-color: rgba(255,209,102,.35); }
     .msg.bad{ border-color: rgba(255,92,122,.35); }
 
-    input, button{
-      font: inherit;
-      color: var(--text);
-    }
+    input, button{ font: inherit; color: var(--text); }
     input[type="number"], input[type="text"]{
       background: rgba(0,0,0,.25);
       border: 1px solid var(--border);
@@ -187,6 +187,7 @@
       white-space: nowrap;
     }
 
+    /* Quick add buttons */
     .quickGrid{
       display:grid;
       grid-template-columns: repeat(3, 1fr);
@@ -195,7 +196,6 @@
     @media (max-width: 520px){
       .quickGrid{ grid-template-columns: 1fr 1fr; gap:8px; }
     }
-
     .qbtn{
       text-align:left;
       display:flex;
@@ -207,24 +207,18 @@
     }
     .qbtn .name{ font-weight:650; }
     .qbtn .kcal{ color: var(--muted); font-size: 12px; }
-
     @media (max-width: 520px){
-      header{ flex-direction:column; align-items:flex-start; gap:8px; }
-      .pillRow{ justify-content:flex-start; gap:6px; }
-      .pill{ padding:6px 8px; font-size:11px; }
-      h1{ font-size:18px; }
-
-      /* You asked for smaller buttons on phone */
-      .qbtn{ min-height: 40px; padding: 8px 10px; }
+      .qbtn{ min-height: 38px; padding: 7px 10px; }
       .qbtn .name{ font-size: 13px; }
       .qbtn .kcal{ font-size: 11px; }
     }
 
+    /* Moments */
     .moments{
       display:grid;
       grid-template-columns: 1fr;
       gap: 10px;
-      margin-top: 8px;
+      margin-top: 10px;
     }
     .moment{
       display:flex;
@@ -241,18 +235,13 @@
       width: 20px; height: 20px;
       accent-color: var(--accent);
     }
-
-    .rightSplit{
-      display:grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 12px;
-      align-items:start;
-      margin-top: 10px;
-    }
-    @media (max-width: 860px){
-      .rightSplit{ grid-template-columns: 1fr; }
+    @media (max-width: 520px){
+      .moment{ padding: 8px 10px; }
+      .moment input[type="checkbox"]{ width: 18px; height: 18px; }
+      .moment .small{ display:none; } /* keep it tidy on phone */
     }
 
+    /* Log */
     .log{
       margin-top: 10px;
       border: 1px solid var(--border);
@@ -273,9 +262,8 @@
       overflow:auto;
     }
     @media (max-width: 520px){
-      .logList{ max-height: 240px; }
+      .logList{ max-height: 220px; }
     }
-
     .item{
       display:flex;
       justify-content:space-between;
@@ -327,113 +315,112 @@
     <div class="pillRow">
       <div class="pill"><span class="label">Today</span> <strong id="todayLabel"></strong></div>
       <div class="pill"><span class="label">Status</span> <strong id="statusLabel">—</strong></div>
-      <div class="pill"><span class="label">Moments</span> <strong id="momentsLabel">0/5</strong></div>
+      <div class="pill"><span class="label">Moments</span> <strong id="momentsLabel">0/6</strong></div>
     </div>
   </header>
 
   <div class="grid">
-    <!-- LEFT: Total + quick add -->
-    <div class="card card-left">
-      <div class="row space">
-        <div>
-          <div class="label">Daily total</div>
-          <div class="big"><span id="totalKcal">0</span> <span class="small">kcal</span></div>
-        </div>
-
-        <!-- hardcoded display instead of inputs -->
-        <div class="row" style="justify-content:flex-end;">
-          <span class="chip">Floor: <strong id="floorLabel"></strong></span>
-          <span class="chip">Green: <strong id="greenLabel"></strong></span>
-        </div>
-      </div>
-
-      <div class="hr"></div>
-
-      <div class="label">Fuel level</div>
-      <div class="barWrap" aria-label="Fuel progress">
-        <div id="bar" class="bar"></div>
-      </div>
-      <div id="barText" class="barText"></div>
-
-      <div id="message" class="msg">
-        <span class="tone">—</span> <span id="messageText"></span>
-      </div>
-		<div class="footerNote">
-            Colour rules: <strong>Green</strong> if ≥ green, <strong>Yellow</strong> if 1500–(green-1), <strong>Red</strong> if &lt; 1500.
+    <!-- LEFT COLUMN: Summary first, then Logging -->
+    <div class="col">
+      <!-- SUMMARY (must come first) -->
+      <div class="card">
+        <div class="row space">
+          <div>
+            <div class="label">Daily total</div>
+            <div class="big"><span id="totalKcal">0</span> <span class="small">kcal</span></div>
           </div>
 
-      <div class="hr"></div>
+          <div class="row" style="justify-content:flex-end;">
+            <span class="chip">Floor: <strong id="floorLabel"></strong></span>
+            <span class="chip">Green: <strong id="greenLabel"></strong></span>
+          </div>
+        </div>
 
-      <div class="row space">
-        <div>
-          <div class="label">Quick add</div>
-          <div class="small">Tap a button to add calories.</div>
+        <div class="hr"></div>
+
+        <div class="label">Fuel level</div>
+        <div class="barWrap" aria-label="Fuel progress">
+          <div id="bar" class="bar"></div>
         </div>
-        <div class="row">
-          <button id="undoBtn" class="ghost" title="Undo last add">Undo <span class="kbd">Ctrl/⌘Z</span></button>
-          <button id="resetDayBtn" class="danger" title="Reset today">Reset today</button>
+        <div id="barText" class="barText"></div>
+
+        <div id="message" class="msg">
+          <span class="tone">—</span> <span id="messageText"></span>
         </div>
+
+        <div class="footerNote">Colour rules: <strong>Green</strong> if ≥ green, <strong>Yellow</strong> if 1500–(green-1), <strong>Red</strong> if &lt; 1500.</div>
       </div>
 
-      <div style="height:10px"></div>
-      <div id="quickAdd" class="quickGrid"></div>
+      <!-- LOGGING (after moments, on mobile it will naturally be after right column) -->
+      <div class="card" id="loggingCard">
+        <div class="row space">
+          <div>
+            <div class="label">Logging</div>
+            <div class="small">Quick add + custom add.</div>
+          </div>
+          <div class="row">
+            <button id="undoBtn" class="ghost" title="Undo last add">Undo <span class="kbd">Ctrl/⌘Z</span></button>
+            <button id="resetDayBtn" class="danger" title="Reset today">Reset today</button>
+          </div>
+        </div>
 
-      <div class="hr"></div>
+        <div class="hr"></div>
 
-      <div class="row" style="align-items:flex-end;">
-        <div style="flex: 1 1 260px;">
-          <div class="label">Custom add</div>
-          <input id="customName" type="text" placeholder="What was it? (e.g., milk + honey)" style="width:100%; margin-top:6px;" />
+        <div class="label">Quick add</div>
+        <div style="height:10px"></div>
+        <div id="quickAdd" class="quickGrid"></div>
+
+        <div class="hr"></div>
+
+        <div class="row" style="align-items:flex-end;">
+          <div style="flex: 1 1 260px;">
+            <div class="label">Custom add</div>
+            <input id="customName" type="text" placeholder="What was it? (e.g., milk + honey)" style="width:100%; margin-top:6px;" />
+          </div>
+          <div style="flex: 0 0 160px;">
+            <div class="label">kcal</div>
+            <input id="customKcal" type="number" min="0" step="10" placeholder="e.g., 180" style="width:100%; margin-top:6px;" />
+          </div>
+          <div style="flex: 0 0 auto;">
+            <button id="customAddBtn" class="primary">Add</button>
+          </div>
         </div>
-        <div style="flex: 0 0 160px;">
-          <div class="label">kcal</div>
-          <input id="customKcal" type="number" min="0" step="10" placeholder="e.g., 180" style="width:100%; margin-top:6px;" />
+
+        <div class="log">
+          <div class="logHeader">
+            <div>
+              <div style="font-weight:700;">Today’s log</div>
+              <div class="small">Newest at the top.</div>
+            </div>
+            <button id="clearLogBtn" class="danger">Clear log</button>
+          </div>
+          <div id="logList" class="logList"></div>
         </div>
-        <div style="flex: 0 0 auto;">
-          <button id="customAddBtn" class="primary">Add</button>
-        </div>
+
+        
       </div>
-
-      
     </div>
 
-    <!-- RIGHT: Moments + log (mobile comes first) -->
-    <div class="card card-right">
-      <div class="row space">
-        <div>
-          <div class="label">Eating moments</div>
-          <div class="small">Rhythm, not morality. Tick when you ate anything at all.</div>
-        </div>
-        <button id="clearMomentsBtn" class="ghost">Clear ticks</button>
-      </div>
-
-      <div style="margin-top:10px;">
-        <div class="label">Moments progress</div>
-        <div class="barWrap" aria-label="Moments progress">
-          <div id="momentsBar" class="bar"></div>
-        </div>
-        <div id="momentsBarText" class="small" style="margin-top:8px;"></div>
-      </div>
-
-      <div class="rightSplit">
-        <div>
-          <div id="moments" class="moments"></div>
-        </div>
-
-        <div>
-          <div class="log" style="margin-top:0;">
-            <div class="logHeader">
-              <div>
-                <div style="font-weight:700;">Today’s log</div>
-                <div class="small">Newest at the top.</div>
-              </div>
-              <button id="clearLogBtn" class="danger">Clear log</button>
-            </div>
-            <div id="logList" class="logList"></div>
+    <!-- RIGHT COLUMN: Moments (comes after summary on desktop; on mobile it stacks after summary and before logging naturally) -->
+    <div class="col">
+      <div class="card">
+        <div class="row space">
+          <div>
+            <div class="label">Eating moments</div>
+            <div class="small">Six beats a day - "regular intake" beats "quantity" </div>
           </div>
-
-          
+          <button id="clearMomentsBtn" class="ghost">Clear ticks</button>
         </div>
+
+        <div style="margin-top:10px;">
+          <div class="label">Moments progress</div>
+          <div class="barWrap" aria-label="Moments progress">
+            <div id="momentsBar" class="bar"></div>
+          </div>
+          <div id="momentsBarText" class="small" style="margin-top:8px;"></div>
+        </div>
+
+        <div id="moments" class="moments"></div>
       </div>
     </div>
   </div>
@@ -452,11 +439,6 @@
 </div>
 
 <script>
-/**
- * Fuel Floor Tracker — single-file, offline, local-only.
- * Data stored in localStorage under one key.
- */
-
 const STORAGE_KEY = "fuel_floor_tracker_v1";
 
 const DEFAULTS = {
@@ -465,11 +447,12 @@ const DEFAULTS = {
   redCutoff: 1500,
 
   moments: [
-    "Moment 1 — morning",
-    "Moment 2 — mid-morning",
-    "Moment 3 — lunch",
-    "Moment 4 — mid-afternoon",
-    "Moment 5 — evening"
+    "1 — morning",
+    "2 — mid-morning",
+    "3 — lunch",
+    "4 — mid-afternoon",
+    "5 — evening",
+    "6 — late snack"
   ],
 
   quickAddFoods: [
@@ -498,7 +481,7 @@ function todayKey(){
   const yyyy = d.getFullYear();
   const mm = String(d.getMonth()+1).padStart(2,"0");
   const dd = String(d.getDate()).padStart(2,"0");
-  return `${yyyy}-${mm}-${dd}`; // internal key stays YYYY-MM-DD
+  return `${yyyy}-${mm}-${dd}`;
 }
 
 function loadState(){
@@ -519,20 +502,18 @@ function initState(){
   const key = todayKey();
   const state = loadState() || {};
 
-  // Persisted quick-add foods (merge new defaults in by name)
   if(!state.quickAddFoods){
     state.quickAddFoods = DEFAULTS.quickAddFoods.slice();
   } else {
-    const existingNames = new Set(state.quickAddFoods.map(f => (f.name || "").toLowerCase()));
+    const existing = new Set(state.quickAddFoods.map(f => (f.name || "").toLowerCase()));
     for(const f of DEFAULTS.quickAddFoods){
       const n = (f.name || "").toLowerCase();
-      if(n && !existingNames.has(n)){
+      if(n && !existing.has(n)){
         state.quickAddFoods.push({ name: f.name, kcal: f.kcal });
       }
     }
   }
 
-  // Daily bucket
   if(!state.days) state.days = {};
   if(!state.days[key]){
     state.days[key] = {
@@ -543,7 +524,6 @@ function initState(){
     };
   }
 
-  // Reconcile moments length
   const day = state.days[key];
   if(!Array.isArray(day.momentsTicked) || day.momentsTicked.length !== DEFAULTS.moments.length){
     const fresh = Array(DEFAULTS.moments.length).fill(false);
@@ -561,9 +541,7 @@ function initState(){
 
 let STATE = initState();
 
-function getDay(){
-  return STATE.days[todayKey()];
-}
+function getDay(){ return STATE.days[todayKey()]; }
 
 function formatTime(ts){
   const d = new Date(ts);
@@ -575,8 +553,7 @@ function formatTime(ts){
 function clamp(n,min,max){ return Math.max(min, Math.min(max,n)); }
 
 function statusFor(total){
-  const green = DEFAULTS.greenThreshold;
-  if(total >= green) return "green";
+  if(total >= DEFAULTS.greenThreshold) return "green";
   if(total < DEFAULTS.redCutoff) return "red";
   return "yellow";
 }
@@ -631,10 +608,7 @@ function addCalories(kcal, name){
   const k = Number(kcal);
   if(!Number.isFinite(k) || k <= 0) return;
 
-  day.undoStack.push({
-    prevTotal: day.totalKcal,
-    prevLogLen: day.log.length
-  });
+  day.undoStack.push({ prevTotal: day.totalKcal, prevLogLen: day.log.length });
 
   day.totalKcal += Math.round(k);
   day.log.push({ ts: Date.now(), name: name || "Added", kcal: Math.round(k) });
@@ -727,12 +701,10 @@ function drawHistoryChart(){
   const xStep = plotW / (N-1);
   const yFor = (v) => plotY0 + plotH - (v / maxV) * plotH;
 
-  // Frame
   ctx.strokeStyle = "rgba(255,255,255,0.12)";
   ctx.lineWidth = 1 * dpr;
   ctx.strokeRect(plotX0, plotY0, plotW, plotH);
 
-  // Y ticks
   const tickStep = 500;
   const maxTick = Math.ceil(maxV / tickStep) * tickStep;
   ctx.font = `${12 * dpr}px ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial`;
@@ -748,10 +720,6 @@ function drawHistoryChart(){
     ctx.stroke();
     ctx.fillText(String(t), Math.round(6 * dpr), y + Math.round(4 * dpr));
   }
-
-  // Guide lines: green + floor
-  const green = DEFAULTS.greenThreshold;
-  const floor = DEFAULTS.floorTarget;
 
   function drawGuide(value, label, dashed){
     const y = yFor(value);
@@ -769,10 +737,9 @@ function drawHistoryChart(){
     ctx.fillText(label, plotX0 + (6 * dpr), y - (6 * dpr));
   }
 
-  drawGuide(green, `green ${green}`, true);
-  drawGuide(floor, `floor ${floor}`, false);
+  drawGuide(DEFAULTS.greenThreshold, `green ${DEFAULTS.greenThreshold}`, true);
+  drawGuide(DEFAULTS.floorTarget, `floor ${DEFAULTS.floorTarget}`, false);
 
-  // Line
   ctx.strokeStyle = "rgba(106,169,255,0.95)";
   ctx.lineWidth = 2 * dpr;
   ctx.beginPath();
@@ -785,7 +752,6 @@ function drawHistoryChart(){
   });
   ctx.stroke();
 
-  // Dots
   days.forEach((d, idx) => {
     const v = d.total ?? 0;
     const x = plotX0 + idx * xStep;
@@ -796,7 +762,6 @@ function drawHistoryChart(){
     ctx.fill();
   });
 
-  // X labels DD-MM every 3 days
   ctx.fillStyle = "rgba(255,255,255,0.55)";
   for(let i=0;i<N;i+=3){
     const key = days[i].key; // YYYY-MM-DD
@@ -806,25 +771,21 @@ function drawHistoryChart(){
   }
 
   ctx.fillStyle = "rgba(255,255,255,0.5)";
- 
+  
 }
 
 function updateUI(){
   const day = getDay();
 
-  // Date label: DD Mon YYYY
   const d = new Date();
   const opts = { day:"2-digit", month:"short", year:"numeric" };
   document.getElementById("todayLabel").textContent = d.toLocaleDateString(undefined, opts);
 
-  // Hardcoded target labels
   document.getElementById("floorLabel").textContent = DEFAULTS.floorTarget;
   document.getElementById("greenLabel").textContent = DEFAULTS.greenThreshold;
 
-  // Totals
   document.getElementById("totalKcal").textContent = day.totalKcal;
 
-  // Fuel bar vs floor
   const floor = DEFAULTS.floorTarget;
   const pct = floor > 0 ? clamp((day.totalKcal / floor) * 100, 0, 140) : 0;
   const bar = document.getElementById("bar");
@@ -836,12 +797,11 @@ function updateUI(){
   else bar.classList.add("bad");
 
   const remaining = Math.max(0, floor - day.totalKcal);
-  const barText = document.getElementById("barText");
-  barText.textContent = (day.totalKcal >= floor)
-    ? `Floor met (${floor} kcal). Extra fuel is allowed. No ceiling here.`
-    : `${remaining} kcal to reach the floor (${floor}).`;
+  document.getElementById("barText").textContent =
+    (day.totalKcal >= floor)
+      ? `Floor met (${floor} kcal). Extra fuel is allowed.`
+      : `${remaining} kcal to reach the floor (${floor}).`;
 
-  // Message
   const msg = friendlyMessage(day.totalKcal);
   const msgEl = document.getElementById("message");
   msgEl.classList.remove("good","warn","bad");
@@ -851,24 +811,21 @@ function updateUI(){
   msgEl.querySelector(".tone").textContent = msg.tone;
   document.getElementById("messageText").textContent = " " + msg.text;
 
-  // Pills
   document.getElementById("statusLabel").textContent = statusLabelFor(day.totalKcal);
 
   const ticked = day.momentsTicked.filter(Boolean).length;
   document.getElementById("momentsLabel").textContent = `${ticked}/${DEFAULTS.moments.length}`;
 
-  // Moments bar
   const mPct = (ticked / DEFAULTS.moments.length) * 100;
   const mBar = document.getElementById("momentsBar");
   const mText = document.getElementById("momentsBarText");
   mBar.style.width = `${mPct}%`;
   mBar.classList.remove("good","warn","bad");
-  if(ticked >= 4) mBar.classList.add("good");
-  else if(ticked >= 2) mBar.classList.add("warn");
+  if(ticked >= 5) mBar.classList.add("good");
+  else if(ticked >= 3) mBar.classList.add("warn");
   else mBar.classList.add("bad");
   mText.textContent = `${ticked}/${DEFAULTS.moments.length} moments logged.`;
 
-  // Moments list
   const momentsWrap = document.getElementById("moments");
   momentsWrap.innerHTML = "";
   DEFAULTS.moments.forEach((label, idx) => {
@@ -894,7 +851,6 @@ function updateUI(){
     });
   });
 
-  // Quick add buttons
   const qa = document.getElementById("quickAdd");
   qa.innerHTML = "";
   STATE.quickAddFoods.forEach((f) => {
@@ -905,7 +861,6 @@ function updateUI(){
     qa.appendChild(btn);
   });
 
-  // Log list
   const logList = document.getElementById("logList");
   logList.innerHTML = "";
   if(day.log.length === 0){
@@ -986,14 +941,12 @@ rollDayIfNeeded();
 wireEvents();
 updateUI();
 
-// keep date/log fresh if left open
 setInterval(() => {
   rollDayIfNeeded();
   updateUI();
 }, 60 * 1000);
 </script>
 
-<!-- Service worker registration -->
 <script>
   if ("serviceWorker" in navigator) {
     window.addEventListener("load", () => {
