@@ -459,7 +459,6 @@ const DEFAULTS = {
     { name: "Skyr pouch", kcal: 170 },
     { name: "Toast (1 slice)", kcal: 120 },
     { name: "Milk (250 ml)", kcal: 150 },
-    { name: "Milk + honey", kcal: 220 },
     { name: "Babybel", kcal: 70 },
     { name: "Yoghurt", kcal: 150 },
     { name: "Rye cracker + hummus", kcal: 180 },
@@ -472,7 +471,7 @@ const DEFAULTS = {
 	{ name: "YFood bottle", kcal: 500 },
 	{ name: "Bread with kippewit", kcal: 170 },
 	{ name: "Beef Jerky strip", kcal: 66 }
-
+    { name: "Toast with guac", kcal: 200 },
   ]
 };
 
@@ -576,7 +575,6 @@ function friendlyMessage(total){
 
   if(st === "green"){
     const extras = [
-      "Brain secured ✅ Keep cruising.",
       "Fuel level: delightful. Your neurons are doing the happy dance.",
       "Floor met. You’ve outsmarted the doom-gremlin today.",
       "Green status. The Time Lord in you approves."
@@ -594,8 +592,9 @@ function friendlyMessage(total){
   if(total === 0){
     return { tone: "Boot sequence needed 🫖", text: "First fuel of the day: anything gentle is a win." };
   }
-  return { tone: "Running on fumes 🆘", text: `You’re under ${DEFAULTS.redCutoff}. Add something easy (milk, toast, yoghurt, nuts).` };
+  return { tone: "Running on fumes 🆘", text: `You’re under ${DEFAULTS.redCutoff}. Eat something, love.` };
 }
+
 
 function escapeHtml(str){
   return String(str).replace(/[&<>"']/g, s => ({
@@ -957,3 +956,4 @@ setInterval(() => {
 
 </body>
 </html>
+
