@@ -1,32 +1,992 @@
-const CACHE_NAME = "fuel-floor-tracker-v1";
-const ASSETS = [
-  "./",
-  "./index.html",
-  "./manifest.json",
-  "./service-worker.js",
-  "./icon-192.png",
-  "./icon-512.png"
-];
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Fuel Floor Tracker</title>
 
-self.addEventListener("install", (event) => {
-  self.skipWaiting();
-  event.waitUntil(
-    caches.open(CACHE_NAME).then((cache) => cache.addAll(ASSETS))
-  );
-});
+  <!-- PWA -->
+  <link rel="manifest" href="manifest.json">
+  <meta name="theme-color" content="#0b0f14">
+  <link rel="apple-touch-icon" href="./icon-192.png">
+ 
+  <style>
+    :root{
+      --bg:#0b0f14;
+      --muted:#9fb0c3;
+      --text:#e8eef6;
+      --border:rgba(255,255,255,.10);
+      --good:#29d37b;
+      --warn:#ffd166;
+      --bad:#ff5c7a;
+      --accent:#6aa9ff;
+      --shadow: 0 10px 30px rgba(0,0,0,.35);
+      --radius: 18px;
+      --pad: 16px;
+      font-synthesis-weight: none;
+    }
+    *{ box-sizing:border-box; }
 
-self.addEventListener("activate", (event) => {
-  event.waitUntil(
-    (async () => {
-      const keys = await caches.keys();
-      await Promise.all(keys.map((k) => (k !== CACHE_NAME ? caches.delete(k) : null)));
-      await self.clients.claim();
-    })()
-  );
-});
+    body{
+      margin:0;
+      background:
+        radial-gradient(1200px 800px at 20% 0%, rgba(106,169,255,.18), transparent 50%),
+        radial-gradient(900px 700px at 100% 10%, rgba(41,211,123,.10), transparent 50%),
+        var(--bg);
+      color:var(--text);
+      font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial;
+      line-height:1.35;
+      padding-bottom: env(safe-area-inset-bottom);
+    }
 
-self.addEventListener("fetch", (event) => {
-  event.respondWith(
-    caches.match(event.request).then((cached) => cached || fetch(event.request))
-  );
-});
+    .wrap{
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 18px;
+      padding-bottom: 40px;
+    }
+
+    header{
+      display:flex;
+      gap:12px;
+      align-items:flex-start;
+      justify-content:space-between;
+      margin: 10px 0 16px 0;
+      flex-wrap:wrap;
+    }
+
+    h1{ margin:0; font-size: 20px; letter-spacing:.2px; }
+    .sub{ color: var(--muted); font-size: 13px; margin-top:4px; }
+
+    .pillRow{
+      display:flex;
+      gap:8px;
+      flex-wrap:wrap;
+      justify-content:flex-end;
+    }
+    .pill{
+      padding: 8px 10px;
+      border: 1px solid var(--border);
+      border-radius: 999px;
+      background: rgba(255,255,255,.04);
+      font-size: 12px;
+      color: var(--muted);
+      display:flex;
+      gap:8px;
+      align-items:center;
+      white-space:nowrap;
+    }
+    .pill strong{ color: var(--text); font-weight:600; }
+
+    .grid{
+      display:grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 14px;
+      align-items:start;
+    }
+    .col{
+      display:flex;
+      flex-direction:column;
+      gap: 14px;
+    }
+    @media (max-width: 860px){
+      .grid{ grid-template-columns: 1fr; }
+      header{ flex-direction:column; align-items:flex-start; gap:8px; }
+      .pillRow{ justify-content:flex-start; gap:6px; }
+      .pill{ padding:6px 8px; font-size:11px; }
+      h1{ font-size:18px; }
+    }
+
+    .card{
+      background: linear-gradient(180deg, rgba(255,255,255,.05), rgba(255,255,255,.02));
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      padding: var(--pad);
+    }
+
+    .row{ display:flex; gap:10px; align-items:center; flex-wrap:wrap; }
+    .row.space{ justify-content:space-between; }
+    .label{ color: var(--muted); font-size: 12px; }
+    .big{ font-size: 34px; font-weight: 750; letter-spacing:.2px; }
+    .small{ font-size: 12px; color: var(--muted); }
+    .hr{ height:1px; background: var(--border); margin: 12px 0; }
+
+    .barWrap{
+      border: 1px solid var(--border);
+      border-radius: 999px;
+      background: rgba(0,0,0,.25);
+      overflow:hidden;
+      height: 16px;
+      position: relative;
+    }
+    .bar{
+      height:100%;
+      width:0%;
+      background: var(--accent);
+      transition: width .25s ease;
+    }
+    .bar.good{ background: var(--good); }
+    .bar.warn{ background: var(--warn); }
+    .bar.bad{ background: var(--bad); }
+
+    .barText{ margin-top: 10px; font-size: 14px; }
+
+    .msg{
+      margin-top: 10px;
+      padding: 10px 12px;
+      border-radius: 14px;
+      border: 1px solid var(--border);
+      background: rgba(0,0,0,.22);
+      color: var(--text);
+    }
+    .msg .tone{ font-weight:700; }
+    .msg.good{ border-color: rgba(41,211,123,.35); }
+    .msg.warn{ border-color: rgba(255,209,102,.35); }
+    .msg.bad{ border-color: rgba(255,92,122,.35); }
+
+    input, button{ font: inherit; color: var(--text); }
+    input[type="number"], input[type="text"]{
+      background: rgba(0,0,0,.25);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 10px 12px;
+      outline:none;
+    }
+    input[type="number"]:focus, input[type="text"]:focus{
+      border-color: rgba(106,169,255,.55);
+      box-shadow: 0 0 0 3px rgba(106,169,255,.18);
+    }
+
+    button{
+      background: rgba(255,255,255,.06);
+      border: 1px solid var(--border);
+      padding: 10px 12px;
+      border-radius: 14px;
+      cursor:pointer;
+      transition: transform .06s ease, background .15s ease, border-color .15s ease;
+    }
+    button:hover{ background: rgba(255,255,255,.09); }
+    button:active{ transform: translateY(1px); }
+    button.primary{
+      background: rgba(106,169,255,.18);
+      border-color: rgba(106,169,255,.38);
+    }
+    button.danger{
+      background: rgba(255,92,122,.14);
+      border-color: rgba(255,92,122,.38);
+    }
+    button.ghost{ background: transparent; }
+
+    .chip{
+      font-size: 12px;
+      color: var(--muted);
+      border: 1px solid var(--border);
+      padding: 6px 9px;
+      border-radius: 999px;
+      background: rgba(255,255,255,.03);
+      white-space: nowrap;
+    }
+
+    /* Quick add buttons */
+    .quickGrid{
+      display:grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 10px;
+    }
+    @media (max-width: 520px){
+      .quickGrid{ grid-template-columns: 1fr 1fr; gap:8px; }
+    }
+    .qbtn{
+      text-align:left;
+      display:flex;
+      justify-content:space-between;
+      gap:10px;
+      align-items:center;
+      min-height: 44px;
+      padding: 10px 12px;
+    }
+    .qbtn .name{ font-weight:650; }
+    .qbtn .kcal{ color: var(--muted); font-size: 12px; }
+    @media (max-width: 520px){
+      .qbtn{ min-height: 38px; padding: 7px 10px; }
+      .qbtn .name{ font-size: 13px; }
+      .qbtn .kcal{ font-size: 11px; }
+    }
+
+    /* Moments */
+    .moments{
+      display:grid;
+      grid-template-columns: 1fr;
+      gap: 10px;
+      margin-top: 10px;
+    }
+    .moment{
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:10px;
+      padding: 10px 12px;
+      border-radius: 14px;
+      border: 1px solid var(--border);
+      background: rgba(0,0,0,.18);
+    }
+    .moment .left{ display:flex; align-items:center; gap:10px; }
+    .moment input[type="checkbox"]{
+      width: 20px; height: 20px;
+      accent-color: var(--accent);
+    }
+    @media (max-width: 520px){
+      .moment{ padding: 8px 10px; }
+      .moment input[type="checkbox"]{ width: 18px; height: 18px; }
+      .moment .small{ display:none; } /* keep it tidy on phone */
+    }
+
+    /* Log */
+    .log{
+      margin-top: 10px;
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      overflow:hidden;
+      background: rgba(0,0,0,.18);
+    }
+    .logHeader{
+      padding: 10px 12px;
+      display:flex;
+      justify-content:space-between;
+      align-items:center;
+      border-bottom: 1px solid var(--border);
+      gap: 10px;
+    }
+    .logList{
+      max-height: 320px;
+      overflow:auto;
+    }
+    @media (max-width: 520px){
+      .logList{ max-height: 220px; }
+    }
+    .item{
+      display:flex;
+      justify-content:space-between;
+      gap: 10px;
+      padding: 10px 12px;
+      border-bottom: 1px solid rgba(255,255,255,.06);
+    }
+    .item:last-child{ border-bottom:none; }
+    .item .meta{ color: var(--muted); font-size: 12px; margin-top:2px; }
+
+    .footerNote{
+      margin-top: 10px;
+      color: var(--muted);
+      font-size: 12px;
+    }
+
+    .kbd{
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+      font-size: 11px;
+      color: var(--muted);
+      border: 1px solid var(--border);
+      padding: 2px 6px;
+      border-radius: 8px;
+      background: rgba(0,0,0,.25);
+    }
+
+    canvas.history{
+      width: 100%;
+      height: 220px;
+      display:block;
+      margin-top: 10px;
+      border: 1px solid rgba(255,255,255,.08);
+      border-radius: 14px;
+      background: rgba(0,0,0,.12);
+    }
+    @media (max-width: 520px){
+      canvas.history{ height: 160px; }
+    }
+	
+		.legend{
+	  display:flex;
+	  gap:12px;
+	  flex-wrap:wrap;
+	  margin-top:10px;
+	  color: var(--muted);
+	  font-size: 12px;
+	  align-items:center;
+	}
+
+	.legItem{
+	  display:flex;
+	  gap:8px;
+	  align-items:center;
+	  padding: 6px 10px;
+	  border: 1px solid var(--border);
+	  border-radius: 999px;
+	  background: rgba(255,255,255,.03);
+	}
+
+	.swatch{
+	  width: 22px;
+	  height: 0;
+	  border-top: 3px solid var(--good); /* green */
+	  display:inline-block;
+	}
+
+	.swatchDashed{
+	  border-top-style: dashed;
+	}
+	
+  </style>
+</head>
+
+<body>
+<div class="wrap">
+  <header>
+    <div>
+      <h1>Fuel Floor Tracker</h1>
+      <div class="sub">No ceiling. No shame. Just: “is the brain safely powered today?”</div>
+    </div>
+    <div class="pillRow">
+      <div class="pill"><span class="label">Today</span> <strong id="todayLabel"></strong></div>
+      <div class="pill"><span class="label">Status</span> <strong id="statusLabel">—</strong></div>
+      <div class="pill"><span class="label">Moments</span> <strong id="momentsLabel">0/6</strong></div>
+    </div>
+  </header>
+
+  <div class="grid">
+    <!-- LEFT COLUMN: Summary first, then Logging -->
+    <div class="col">
+      <!-- SUMMARY (must come first) -->
+      <div class="card">
+        <div class="row space">
+          <div>
+            <div class="label">Daily total</div>
+            <div class="big"><span id="totalKcal">0</span> <span class="small">kcal</span></div>
+          </div>
+
+          <div class="row" style="justify-content:flex-end;">
+            <span class="chip">Floor: <strong id="floorLabel"></strong></span>
+            <span class="chip">Green: <strong id="greenLabel"></strong></span>
+          </div>
+        </div>
+
+        <div class="hr"></div>
+
+        <div class="label">Fuel level</div>
+        <div class="barWrap" aria-label="Fuel progress">
+          <div id="bar" class="bar"></div>
+        </div>
+        <div id="barText" class="barText"></div>
+
+        <div id="message" class="msg">
+          <span class="tone">—</span> <span id="messageText"></span>
+        </div>
+
+        <div class="footerNote">Colour rules: <strong>Green</strong> if ≥ green, <strong>Yellow</strong> if 1500–(green-1), <strong>Red</strong> if &lt; 1500.</div>
+      </div>
+
+      <!-- LOGGING (after moments, on mobile it will naturally be after right column) -->
+      <div class="card" id="loggingCard">
+        <div class="row space">
+          <div>
+            <div class="label">Logging</div>
+            <div class="small">Quick add + custom add.</div>
+          </div>
+          <div class="row">
+            <button id="undoBtn" class="ghost" title="Undo last add">Undo <span class="kbd">Ctrl/⌘Z</span></button>
+            <button id="resetDayBtn" class="danger" title="Reset today">Reset today</button>
+          </div>
+        </div>
+
+        <div class="hr"></div>
+
+        <div class="label">Quick add</div>
+        <div style="height:10px"></div>
+        <div id="quickAdd" class="quickGrid"></div>
+
+        <div class="hr"></div>
+
+        <div class="row" style="align-items:flex-end;">
+          <div style="flex: 1 1 260px;">
+            <div class="label">Custom add</div>
+            <input id="customName" type="text" placeholder="What was it? (e.g., milk + honey)" style="width:100%; margin-top:6px;" />
+          </div>
+          <div style="flex: 0 0 160px;">
+            <div class="label">kcal</div>
+            <input id="customKcal" type="number" min="0" step="10" placeholder="e.g., 180" style="width:100%; margin-top:6px;" />
+          </div>
+          <div style="flex: 0 0 auto;">
+            <button id="customAddBtn" class="primary">Add</button>
+          </div>
+        </div>
+
+        <div class="log">
+          <div class="logHeader">
+            <div>
+              <div style="font-weight:700;">Today’s log</div>
+              <div class="small">Newest at the top.</div>
+            </div>
+            <button id="clearLogBtn" class="danger">Clear log</button>
+          </div>
+          <div id="logList" class="logList"></div>
+        </div>
+
+        
+      </div>
+    </div>
+
+    <!-- RIGHT COLUMN: Moments (comes after summary on desktop; on mobile it stacks after summary and before logging naturally) -->
+    <div class="col">
+      <div class="card">
+        <div class="row space">
+          <div>
+            <div class="label">Eating moments</div>
+            <div class="small">Six beats a day - "regular intake" beats "quantity" </div>
+          </div>
+          <button id="clearMomentsBtn" class="ghost">Clear ticks</button>
+        </div>
+
+        <div style="margin-top:10px;">
+          <div class="label">Moments progress</div>
+          <div class="barWrap" aria-label="Moments progress">
+            <div id="momentsBar" class="bar"></div>
+          </div>
+          <div id="momentsBarText" class="small" style="margin-top:8px;"></div>
+        </div>
+
+        <div id="moments" class="moments"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- HISTORY AT VERY END -->
+  <div class="card" style="margin-top:14px;">
+    <div class="row space">
+      <div>
+        <div style="font-weight:700;">History</div>
+        <div class="small">Daily total kcal (last 14 days)</div>
+      </div>
+      <div class="chip">local only</div>
+    </div>
+	<div class="legend">
+    <div class="legItem"><span class="swatch swatchSolid"></span><span>Floor (1800)</span></div>
+    <div class="legItem"><span class="swatch swatchDashed"></span><span>Green threshold (1650)</span></div>
+  </div>
+    <canvas id="historyChart" class="history" width="900" height="220"></canvas>
+  </div>
+</div>
+
+<script>
+const STORAGE_KEY = "fuel_floor_tracker_v1";
+
+const DEFAULTS = {
+  floorTarget: 1800,
+  greenThreshold: 1650,
+  redCutoff: 1500,
+
+  moments: [
+    "1 — morning",
+    "2 — mid-morning",
+    "3 — lunch",
+    "4 — mid-afternoon",
+    "5 — evening",
+    "6 — late snack"
+  ],
+
+  quickAddFoods: [
+    { name: "Skyr pouch", kcal: 170 },
+    { name: "Toast (1 slice)", kcal: 120 },
+    { name: "Babybel", kcal: 70 },
+    { name: "Yoghurt", kcal: 150 },
+    { name: "Rye cracker + hummus", kcal: 180 },
+    { name: "Handful of nuts", kcal: 200 },
+    { name: "Banana", kcal: 105 },
+    { name: "Soup bowl", kcal: 250 },
+    { name: "Cornflakes (bowl)", kcal: 220 },
+    { name: "Cucumber snack", kcal: 25 },
+	{ name: "Stuffed peanut bar", kcal: 231 },
+	{ name: "YFood bottle", kcal: 500 },
+	{ name: "Bread with kippewit", kcal: 170 },
+	{ name: "Beef Jerky strip", kcal: 66 },
+	{ name: "X Oats", kcal: 300 },
+    { name: "Toast with guac", kcal: 200 },
+  ]
+};
+
+function todayKey(){
+  const d = new Date();
+  const yyyy = d.getFullYear();
+  const mm = String(d.getMonth()+1).padStart(2,"0");
+  const dd = String(d.getDate()).padStart(2,"0");
+  return `${yyyy}-${mm}-${dd}`;
+}
+
+function loadState(){
+  try{
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if(!raw) return null;
+    return JSON.parse(raw);
+  }catch(e){
+    return null;
+  }
+}
+
+function saveState(state){
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+}
+
+function initState(){
+  const key = todayKey();
+  const state = loadState() || {};
+
+  if(!state.quickAddFoods){
+    state.quickAddFoods = DEFAULTS.quickAddFoods.slice();
+  } else {
+    const existing = new Set(state.quickAddFoods.map(f => (f.name || "").toLowerCase()));
+    for(const f of DEFAULTS.quickAddFoods){
+      const n = (f.name || "").toLowerCase();
+      if(n && !existing.has(n)){
+        state.quickAddFoods.push({ name: f.name, kcal: f.kcal });
+      }
+    }
+  }
+
+  if(!state.days) state.days = {};
+  if(!state.days[key]){
+    state.days[key] = {
+      totalKcal: 0,
+      log: [],
+      momentsTicked: Array(DEFAULTS.moments.length).fill(false),
+      undoStack: []
+    };
+  }
+
+  const day = state.days[key];
+  if(!Array.isArray(day.momentsTicked) || day.momentsTicked.length !== DEFAULTS.moments.length){
+    const fresh = Array(DEFAULTS.moments.length).fill(false);
+    if(Array.isArray(day.momentsTicked)){
+      for(let i=0;i<Math.min(day.momentsTicked.length, fresh.length);i++){
+        fresh[i] = !!day.momentsTicked[i];
+      }
+    }
+    day.momentsTicked = fresh;
+  }
+
+  saveState(state);
+  return state;
+}
+
+let STATE = initState();
+
+function getDay(){ return STATE.days[todayKey()]; }
+
+function formatTime(ts){
+  const d = new Date(ts);
+  const hh = String(d.getHours()).padStart(2,"0");
+  const mm = String(d.getMinutes()).padStart(2,"0");
+  return `${hh}:${mm}`;
+}
+
+function clamp(n,min,max){ return Math.max(min, Math.min(max,n)); }
+
+function statusFor(total){
+  if(total >= DEFAULTS.greenThreshold) return "green";
+  if(total < DEFAULTS.redCutoff) return "red";
+  return "yellow";
+}
+
+function statusLabelFor(total){
+  const st = statusFor(total);
+  if(st==="green") return "Green ✅";
+  if(st==="yellow") return "Yellow ⚠️";
+  return "Red 🆘";
+}
+
+function friendlyMessage(total){
+  const floor = DEFAULTS.floorTarget;
+  const green = DEFAULTS.greenThreshold;
+
+  const remainingToFloor = Math.max(0, floor - total);
+  const remainingToGreen = Math.max(0, green - total);
+
+  const st = statusFor(total);
+
+  if(st === "green"){
+    const extras = [
+      "Fuel level: delightful. Your neurons are doing the happy dance.",
+      "Floor met. You’ve outsmarted the doom-gremlin today.",
+      "Green status. The Time Lord in you approves."
+    ];
+    return { tone: "Brain secured ✅", text: extras[Math.floor(Math.random()*extras.length)] };
+  }
+
+  if(st === "yellow"){
+    if(remainingToGreen <= 150){
+      return { tone: "Almost there ⚡", text: `You’re within ${remainingToGreen} kcal of green. A small top-up = smoother brain.` };
+    }
+    return { tone: "Running a bit low ⚠️", text: `Still ${remainingToFloor} kcal to the floor. Something small counts.` };
+  }
+
+  if(total === 0){
+    return { tone: "Boot sequence needed 🫖", text: "First fuel of the day: anything gentle is a win." };
+  }
+  return { tone: "Running on fumes 🆘", text: `You’re under ${DEFAULTS.redCutoff}. Eat something easy, love.` };
+}
+
+function escapeHtml(str){
+  return String(str).replace(/[&<>"']/g, s => ({
+    "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"
+  }[s]));
+}
+
+function addCalories(kcal, name){
+  const day = getDay();
+  const k = Number(kcal);
+  if(!Number.isFinite(k) || k <= 0) return;
+
+  day.undoStack.push({ prevTotal: day.totalKcal, prevLogLen: day.log.length });
+
+  day.totalKcal += Math.round(k);
+  day.log.push({ ts: Date.now(), name: name || "Added", kcal: Math.round(k) });
+
+  saveState(STATE);
+  updateUI();
+}
+
+function undoLast(){
+  const day = getDay();
+  const snap = day.undoStack.pop();
+  if(!snap) return;
+
+  day.totalKcal = snap.prevTotal;
+  day.log = day.log.slice(0, snap.prevLogLen);
+
+  saveState(STATE);
+  updateUI();
+}
+
+function resetToday(){
+  const day = getDay();
+  day.totalKcal = 0;
+  day.log = [];
+  day.momentsTicked = Array(DEFAULTS.moments.length).fill(false);
+  day.undoStack = [];
+  saveState(STATE);
+  updateUI();
+}
+
+function clearMoments(){
+  const day = getDay();
+  day.momentsTicked = Array(DEFAULTS.moments.length).fill(false);
+  saveState(STATE);
+  updateUI();
+}
+
+function clearLogOnly(){
+  const day = getDay();
+  day.totalKcal = 0;
+  day.log = [];
+  day.undoStack = [];
+  saveState(STATE);
+  updateUI();
+}
+
+function drawHistoryChart(){
+  const canvas = document.getElementById("historyChart");
+  if(!canvas) return;
+
+  const cssHeight = getComputedStyle(canvas).height;
+  const cssH = Math.max(120, parseInt(cssHeight, 10) || 220);
+
+  const rect = canvas.getBoundingClientRect();
+  const dpr = window.devicePixelRatio || 1;
+  const targetW = Math.max(300, Math.round(rect.width * dpr));
+  const targetH = Math.round(cssH * dpr);
+  if(canvas.width !== targetW || canvas.height !== targetH){
+    canvas.width = targetW;
+    canvas.height = targetH;
+  }
+
+  const ctx = canvas.getContext("2d");
+  const W = canvas.width, H = canvas.height;
+  ctx.clearRect(0,0,W,H);
+
+  const N = 14;
+  const days = [];
+  const now = new Date();
+
+  for(let i=N-1;i>=0;i--){
+    const d = new Date(now);
+    d.setDate(now.getDate() - i);
+    const yyyy = d.getFullYear();
+    const mm = String(d.getMonth()+1).padStart(2,"0");
+    const dd = String(d.getDate()).padStart(2,"0");
+    const key = `${yyyy}-${mm}-${dd}`;
+    const total = STATE.days?.[key]?.totalKcal ?? null;
+    days.push({ key, total });
+  }
+
+  const values = days.map(x => (x.total ?? 0));
+  const maxV = Math.max(2000, ...values);
+
+  const padLeft = Math.round(46 * dpr);
+  const pad = Math.round(18 * dpr);
+  const plotX0 = padLeft, plotY0 = pad;
+  const plotW = W - padLeft - pad, plotH = H - pad*2;
+
+  const xStep = plotW / (N-1);
+  const yFor = (v) => plotY0 + plotH - (v / maxV) * plotH;
+
+  ctx.strokeStyle = "rgba(255,255,255,0.12)";
+  ctx.lineWidth = 1 * dpr;
+  ctx.strokeRect(plotX0, plotY0, plotW, plotH);
+
+  const tickStep = 500;
+  const maxTick = Math.ceil(maxV / tickStep) * tickStep;
+  ctx.font = `${12 * dpr}px ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial`;
+  ctx.fillStyle = "rgba(255,255,255,0.55)";
+  ctx.strokeStyle = "rgba(255,255,255,0.08)";
+  ctx.lineWidth = 1 * dpr;
+
+  for(let t=0; t<=maxTick; t+=tickStep){
+    const y = yFor(t);
+    ctx.beginPath();
+    ctx.moveTo(plotX0, y);
+    ctx.lineTo(plotX0 + plotW, y);
+    ctx.stroke();
+    ctx.fillText(String(t), Math.round(6 * dpr), y + Math.round(4 * dpr));
+  }
+
+  function drawGuide(value, dashed){
+  const y = yFor(value);
+  ctx.strokeStyle = "rgba(41,211,123,0.85)"; // green-ish (matches your --good vibe)
+  ctx.lineWidth = 2 * dpr;
+  if(dashed) ctx.setLineDash([6 * dpr, 6 * dpr]);
+
+  ctx.beginPath();
+  ctx.moveTo(plotX0, y);
+  ctx.lineTo(plotX0 + plotW, y);
+  ctx.stroke();
+
+  ctx.setLineDash([]);
+  }
+
+  drawGuide(DEFAULTS.floorTarget, false);        // solid
+  drawGuide(DEFAULTS.greenThreshold, true);      // dashed
+
+  ctx.strokeStyle = "rgba(106,169,255,0.95)";
+  ctx.lineWidth = 2 * dpr;
+  ctx.beginPath();
+  days.forEach((d, idx) => {
+    const v = d.total ?? 0;
+    const x = plotX0 + idx * xStep;
+    const y = yFor(v);
+    if(idx === 0) ctx.moveTo(x,y);
+    else ctx.lineTo(x,y);
+  });
+  ctx.stroke();
+
+  days.forEach((d, idx) => {
+    const v = d.total ?? 0;
+    const x = plotX0 + idx * xStep;
+    const y = yFor(v);
+    ctx.beginPath();
+    ctx.fillStyle = d.total === null ? "rgba(255,255,255,0.25)" : "rgba(255,255,255,0.9)";
+    ctx.arc(x, y, 3 * dpr, 0, Math.PI*2);
+    ctx.fill();
+  });
+
+  ctx.fillStyle = "rgba(255,255,255,0.55)";
+  for(let i=0;i<N;i+=3){
+    const key = days[i].key; // YYYY-MM-DD
+    const label = key.slice(8,10) + "-" + key.slice(5,7); // DD-MM
+    const x = plotX0 + i * xStep;
+    ctx.fillText(label, x - (14 * dpr), H - (6 * dpr));
+  }
+
+  ctx.fillStyle = "rgba(255,255,255,0.5)";
+  
+}
+
+function updateUI(){
+  const day = getDay();
+
+  const d = new Date();
+  const opts = { day:"2-digit", month:"short", year:"numeric" };
+  document.getElementById("todayLabel").textContent = d.toLocaleDateString(undefined, opts);
+
+  document.getElementById("floorLabel").textContent = DEFAULTS.floorTarget;
+  document.getElementById("greenLabel").textContent = DEFAULTS.greenThreshold;
+
+  document.getElementById("totalKcal").textContent = day.totalKcal;
+
+  const floor = DEFAULTS.floorTarget;
+  const pct = floor > 0 ? clamp((day.totalKcal / floor) * 100, 0, 140) : 0;
+  const bar = document.getElementById("bar");
+  bar.style.width = `${Math.min(pct,100)}%`;
+  bar.classList.remove("good","warn","bad");
+  const st = statusFor(day.totalKcal);
+  if(st==="green") bar.classList.add("good");
+  else if(st==="yellow") bar.classList.add("warn");
+  else bar.classList.add("bad");
+
+  const remaining = Math.max(0, floor - day.totalKcal);
+  document.getElementById("barText").textContent =
+    (day.totalKcal >= floor)
+      ? `Floor met (${floor} kcal). Extra fuel is allowed.`
+      : `${remaining} kcal to reach the floor (${floor}).`;
+
+  const msg = friendlyMessage(day.totalKcal);
+  const msgEl = document.getElementById("message");
+  msgEl.classList.remove("good","warn","bad");
+  if(st==="green") msgEl.classList.add("good");
+  else if(st==="yellow") msgEl.classList.add("warn");
+  else msgEl.classList.add("bad");
+  msgEl.querySelector(".tone").textContent = msg.tone;
+  document.getElementById("messageText").textContent = " " + msg.text;
+
+  document.getElementById("statusLabel").textContent = statusLabelFor(day.totalKcal);
+
+  const ticked = day.momentsTicked.filter(Boolean).length;
+  document.getElementById("momentsLabel").textContent = `${ticked}/${DEFAULTS.moments.length}`;
+
+  const mPct = (ticked / DEFAULTS.moments.length) * 100;
+  const mBar = document.getElementById("momentsBar");
+  const mText = document.getElementById("momentsBarText");
+  mBar.style.width = `${mPct}%`;
+  mBar.classList.remove("good","warn","bad");
+  if(ticked >= 5) mBar.classList.add("good");
+  else if(ticked >= 3) mBar.classList.add("warn");
+  else mBar.classList.add("bad");
+  mText.textContent = `${ticked}/${DEFAULTS.moments.length} moments logged.`;
+
+  const momentsWrap = document.getElementById("moments");
+  momentsWrap.innerHTML = "";
+  DEFAULTS.moments.forEach((label, idx) => {
+    const div = document.createElement("div");
+    div.className = "moment";
+    div.innerHTML = `
+      <div class="left">
+        <input type="checkbox" id="m_${idx}" ${day.momentsTicked[idx] ? "checked" : ""} />
+        <div>
+          <div style="font-weight:650;">${label}</div>
+          <div class="small">Tick = eating happened. Calories can be tiny.</div>
+        </div>
+      </div>
+      <div class="chip">${day.momentsTicked[idx] ? "done" : "open"}</div>
+    `;
+    momentsWrap.appendChild(div);
+
+    const cb = div.querySelector(`#m_${idx}`);
+    cb.addEventListener("change", () => {
+      day.momentsTicked[idx] = cb.checked;
+      saveState(STATE);
+      updateUI();
+    });
+  });
+
+  const qa = document.getElementById("quickAdd");
+  qa.innerHTML = "";
+  STATE.quickAddFoods.forEach((f) => {
+    const btn = document.createElement("button");
+    btn.className = "qbtn";
+    btn.innerHTML = `<span class="name">${escapeHtml(f.name)}</span><span class="kcal">+${f.kcal}</span>`;
+    btn.addEventListener("click", () => addCalories(f.kcal, f.name));
+    qa.appendChild(btn);
+  });
+
+  const logList = document.getElementById("logList");
+  logList.innerHTML = "";
+  if(day.log.length === 0){
+    const empty = document.createElement("div");
+    empty.className = "item";
+    empty.innerHTML = `<div><div style="font-weight:650;">No entries yet</div><div class="meta">Tap quick-add or use custom add.</div></div><div class="chip">—</div>`;
+    logList.appendChild(empty);
+  } else {
+    day.log.slice().reverse().forEach((entry) => {
+      const div = document.createElement("div");
+      div.className = "item";
+      div.innerHTML = `
+        <div>
+          <div style="font-weight:650;">${escapeHtml(entry.name)}</div>
+          <div class="meta">${formatTime(entry.ts)}</div>
+        </div>
+        <div class="chip">+${entry.kcal} kcal</div>
+      `;
+      logList.appendChild(div);
+    });
+  }
+
+  document.getElementById("undoBtn").disabled = (day.undoStack.length === 0);
+
+  drawHistoryChart();
+}
+
+function wireEvents(){
+  document.getElementById("customAddBtn").addEventListener("click", () => {
+    const name = document.getElementById("customName").value.trim() || "Custom add";
+    const kcal = Number(document.getElementById("customKcal").value);
+    if(!Number.isFinite(kcal) || kcal <= 0) return;
+    addCalories(kcal, name);
+    document.getElementById("customName").value = "";
+    document.getElementById("customKcal").value = "";
+  });
+
+  document.getElementById("undoBtn").addEventListener("click", undoLast);
+
+  document.getElementById("resetDayBtn").addEventListener("click", () => {
+    if(confirm("Reset today’s total, moments, and log?")){
+      resetToday();
+    }
+  });
+
+  document.getElementById("clearMomentsBtn").addEventListener("click", clearMoments);
+
+  document.getElementById("clearLogBtn").addEventListener("click", () => {
+    if(confirm("Clear today’s log AND total?")){
+      clearLogOnly();
+    }
+  });
+
+  window.addEventListener("keydown", (e) => {
+    const z = (e.key || "").toLowerCase() === "z";
+    if(z && (e.ctrlKey || e.metaKey)){
+      e.preventDefault();
+      undoLast();
+    }
+  });
+}
+
+function rollDayIfNeeded(){
+  const key = todayKey();
+  if(!STATE.days[key]){
+    STATE.days[key] = {
+      totalKcal: 0,
+      log: [],
+      momentsTicked: Array(DEFAULTS.moments.length).fill(false),
+      undoStack: []
+    };
+    saveState(STATE);
+  }
+}
+
+// Boot
+rollDayIfNeeded();
+wireEvents();
+updateUI();
+
+setInterval(() => {
+  rollDayIfNeeded();
+  updateUI();
+}, 60 * 1000);
+</script>
+
+<script>
+  if ("serviceWorker" in navigator) {
+    window.addEventListener("load", () => {
+      navigator.serviceWorker.register("./service-worker.js");
+    });
+  }
+</script>
+
+</body>
+</html>
