@@ -1,4 +1,4 @@
-const CACHE_NAME = "fuel-floor-tracker-v2"; // bump this when you deploy changes
+const CACHE_NAME = "fuel-floor-tracker-v3"; // bump this when you deploy changes
 const ASSETS = [
   "./",
   "./index.html",
@@ -59,6 +59,8 @@ self.addEventListener("fetch", (event) => {
         try {
           const fresh = await fetch(req);
           const cache = await caches.open(CACHE_NAME);
+          cache.put(req, fresh.clone());
+          // also cache the canonical index path for offline fallback
           cache.put("./index.html", fresh.clone());
           return fresh;
         } catch (e) {
