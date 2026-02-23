@@ -394,6 +394,9 @@
           <div class="row">
             <button id="undoBtn" class="ghost" title="Undo last add">Undo <span class="kbd">Ctrl/⌘Z</span></button>
             <button id="resetDayBtn" class="danger" title="Reset today">Reset today</button>
+            <button id="exportBtn" class="ghost" title="Export your data to a file">Export</button>
+            <button id="importBtn" class="ghost" title="Import data from a backup file">Import</button>
+            <input id="importFile" type="file" accept="application/json" style="display:none;" />
           </div>
         </div>
 
@@ -468,8 +471,8 @@
       <div class="chip">local only</div>
     </div>
 	<div class="legend">
-    <div class="legItem"><span class="swatch swatchSolid"></span><span>Floor (1800)</span></div>
-    <div class="legItem"><span class="swatch swatchDashed"></span><span>Green threshold (1650)</span></div>
+    <div class="legItem"><span class="swatch swatchSolid"></span><span>Floor (<span id="legendFloor"></span>)</span></div>
+    <div class="legItem"><span class="swatch swatchDashed"></span><span>Green threshold (<span id="legendGreen"></span>)</span></div>
   </div>
     <canvas id="historyChart" class="history" width="900" height="220"></canvas>
   </div>
@@ -477,6 +480,7 @@
 
 <script>
 const STORAGE_KEY = "fuel_floor_tracker_v1";
+const BACKUP_KEY = STORAGE_KEY + "__backup";
 
 const DEFAULTS = {
   floorTarget: 1800,
@@ -521,17 +525,25 @@ function todayKey(){
 }
 
 function loadState(){
+  // Try main state, then fallback to backup (helps recover if a write was interrupted)
   try{
     const raw = localStorage.getItem(STORAGE_KEY);
-    if(!raw) return null;
-    return JSON.parse(raw);
-  }catch(e){
-    return null;
-  }
+    if(raw) return JSON.parse(raw);
+  }catch(e){ /* ignore */ }
+
+  try{
+    const rawB = localStorage.getItem(BACKUP_KEY);
+    if(rawB) return JSON.parse(rawB);
+  }catch(e){ /* ignore */ }
+
+  return null;
 }
 
 function saveState(state){
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+  const payload = JSON.stringify(state);
+  localStorage.setItem(STORAGE_KEY, payload);
+  // keep a secondary copy (same origin) to reduce "oops" risk
+  localStorage.setItem(BACKUP_KEY, payload);
 }
 
 function initState(){
@@ -817,6 +829,12 @@ function updateUI(){
   document.getElementById("floorLabel").textContent = DEFAULTS.floorTarget;
   document.getElementById("greenLabel").textContent = DEFAULTS.greenThreshold;
 
+  // Legend numbers (history card)
+  const lf = document.getElementById("legendFloor");
+  const lg = document.getElementById("legendGreen");
+  if(lf) lf.textContent = DEFAULTS.floorTarget;
+  if(lg) lg.textContent = DEFAULTS.greenThreshold;
+
   document.getElementById("totalKcal").textContent = day.totalKcal;
 
   const floor = DEFAULTS.floorTarget;
@@ -947,7 +965,56 @@ function wireEvents(){
     }
   });
 
-  window.addEventListener("keydown", (e) => {
+  // Backup controls (Export/Import)
+  const exportBtn = document.getElementById("exportBtn");
+  const importBtn = document.getElementById("importBtn");
+  const importFile = document.getElementById("importFile");
+
+  if(exportBtn){
+    exportBtn.addEventListener("click", () => {
+      try{
+        const blob = new Blob([JSON.stringify(STATE, null, 2)], { type: "application/json" });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = "fuel-floor-tracker-backup.json";
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        URL.revokeObjectURL(url);
+      }catch(e){
+        alert("Export failed. (Browser blocked it?)");
+      }
+    });
+  }
+
+  if(importBtn && importFile){
+    importBtn.addEventListener("click", () => importFile.click());
+
+    importFile.addEventListener("change", async (e) => {
+      const file = e.target.files && e.target.files[0];
+      if(!file) return;
+      try{
+        const text = await file.text();
+        const imported = JSON.parse(text);
+        if(!imported || typeof imported !== "object" || !imported.days){
+          alert("That file doesn't look like a tracker backup.");
+          return;
+        }
+        STATE = imported;
+        saveState(STATE);
+        rollDayIfNeeded();
+        updateUI();
+        alert("Imported. Timeline restored.");
+      }catch(err){
+        alert("Import failed. Is the file valid JSON?");
+      }finally{
+        e.target.value = "";
+      }
+    });
+  }
+
+window.addEventListener("keydown", (e) => {
     const z = (e.key || "").toLowerCase() === "z";
     if(z && (e.ctrlKey || e.metaKey)){
       e.preventDefault();
