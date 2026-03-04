@@ -798,14 +798,27 @@ function drawHistoryChart(){
   ctx.stroke();
 
   days.forEach((d, idx) => {
-    const v = d.total ?? 0;
-    const x = plotX0 + idx * xStep;
-    const y = yFor(v);
-    ctx.beginPath();
-    ctx.fillStyle = d.total === null ? "rgba(255,255,255,0.25)" : "rgba(255,255,255,0.9)";
-    ctx.arc(x, y, 3 * dpr, 0, Math.PI*2);
-    ctx.fill();
-  });
+  const v = d.total ?? 0;
+  const x = plotX0 + idx * xStep;
+  const y = yFor(v);
+
+  let color = "rgba(255,255,255,0.25)";
+
+  if (d.total !== null) {
+    if (v >= DEFAULTS.greenThreshold) {
+      color = "rgba(41,211,123,0.95)"; // green
+    } else if (v < DEFAULTS.redCutoff) {
+      color = "rgba(255,92,122,0.95)"; // red
+    } else {
+      color = "rgba(255,209,102,0.95)"; // yellow
+    }
+  }
+
+  ctx.beginPath();
+  ctx.fillStyle = color;
+  ctx.arc(x, y, 4 * dpr, 0, Math.PI * 2);
+  ctx.fill();
+});
 
   ctx.fillStyle = "rgba(255,255,255,0.55)";
   for(let i=0;i<N;i+=3){
@@ -1057,3 +1070,4 @@ setInterval(() => {
 
 </body>
 </html>
+
